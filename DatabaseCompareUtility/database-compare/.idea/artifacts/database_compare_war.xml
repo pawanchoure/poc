@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="war" name="database-compare:war">
+    <output-path>$PROJECT_DIR$/target</output-path>
+    <root id="archive" name="database-compare.war">
+      <element id="artifact" artifact-name="database-compare:war exploded" />
+    </root>
+  </artifact>
+</component>
