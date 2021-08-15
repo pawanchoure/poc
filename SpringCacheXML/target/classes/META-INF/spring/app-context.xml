@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:cache="http://www.springframework.org/schema/cache"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-4.2.xsd
+        http://www.springframework.org/schema/cache http://www.springframework.org/schema/cache/spring-cache-4.2.xsd
+
+        http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop-4.2.xsd">
+
+
+    <cache:annotation-driven/>
+
+    <!--<context:annotation-config/>-->
+
+    <bean id="customKeyGenerator" class="com.pawan.choure.CustomKeyGenerator"/>
+
+    <bean id="testService"  name="testService" class="com.pawan.choure.TestService"/>
+    <bean id="compositeService" class="com.pawan.choure.CompositeService">
+        <property name="cacheManager">
+            <ref bean="cacheManager"/>
+        </property>
+        <property name="testService">
+            <ref bean="testService"/>
+        </property>
+    </bean>
+
+    <bean id="cacheManager" class="org.springframework.cache.support.SimpleCacheManager">
+        <property name="caches">
+            <set>
+                <bean class="org.springframework.cache.concurrent.ConcurrentMapCacheFactoryBean" name="composite"/>
+                <bean class="org.springframework.cache.concurrent.ConcurrentMapCacheFactoryBean" name="otcMarkets"/>
+            </set>
+        </property>
+    </bean>
+
+    <!-- define caching behavior -->
+    <cache:advice id="cacheAdvice" cache-manager="cacheManager">
+        <cache:caching cache="composite">
+            <!--<cache:cacheable method="getCustomerResponse" key="#composite.id"/>
+            <cache:cacheable method="getComposite" key="#composite.id"/>
+            <cache:cacheable method="getCompositeCheck" key="#composite.id"/>-->
+            <cache:cacheable method="getCustomerResponse" key-generator="customKeyGenerator"/>
+            <cache:cacheable method="getComposite" key-generator="customKeyGenerator"/>
+            <cache:cacheable method="getCompositeCheck" key-generator="customKeyGenerator" unless="#result == null"/>
+            <cache:cache-put method="putComposite" key-generator="customKeyGenerator"/>
+            <cache:cache-evict method="removeComposite" key-generator="customKeyGenerator"/>
+
+        </cache:caching>
+        <cache:caching cache="otcMarkets">
+            <cache:cacheable method="getOTCMarkets" key="#root.methodName" unless="#result == null"/>
+            <cache:cache-evict method="clearOTCMarkets" all-entries="true"/>
+        </cache:caching>
+    </cache:advice>
+
+
+    <!-- apply the behavior to all the implementations of CustomerDataService  -->
+    <aop:config>
+        <aop:advisor advice-ref="cacheAdvice" pointcut="execution(* com.pawan.choure.CompositeService.*(..))"/>
+        <aop:advisor advice-ref="performanceMonitor" pointcut="execution(* com.pawan.choure.*.*(..))" order="2"/>
+        <aop:advisor advice-ref="perfInterceptor" pointcut="execution(* com.pawan.choure.*.*(..))" order="3"/>
+    </aop:config>
+
+
+    <!--> Spring AOP for Getting Each Method Exectution Time<!-->
+    <bean id="performanceMonitor"
+          class="org.springframework.aop.interceptor.PerformanceMonitorInterceptor" >
+        <constructor-arg type="boolean" value="false"></constructor-arg>
+    </bean>
+
+    <bean id="perfInterceptor"
+          class="com.pawan.choure.PerfInterceptor">
+    </bean>
+    <!--
+        <aop:config>
+            <aop:pointcut id="allServiceMethods" expression="execution(* com.pawan.choure.CompositeService.*.*(..))"/>
+            <aop:advisor pointcut-ref="allServiceMethods" advice-ref="performanceMonitor" order="1"/>
+        </aop:config>
+    -->
+
+
+</beans>
